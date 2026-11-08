@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
+  Bookmark,
   Check,
   CirclePlay,
   Globe2,
@@ -22,16 +23,17 @@ export function Poster({
 }) {
   const fallback = `${import.meta.env.BASE_URL}art/${movie.art || "interstellar"}.svg`;
   const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [movie.id]);
   return (
     <img
       className={`poster ${className}`}
       src={
-        catalogConfigured && movie.poster && !failed
+        movie.poster && !failed
           ? `https://image.tmdb.org/t/p/w500${movie.poster}`
           : fallback
       }
       onError={() => setFailed(true)}
-      alt={`${movie.title}${catalogConfigured ? "" : " · illustrated demo poster"}`}
+      alt={`${movie.title}${failed || !movie.poster ? " · illustrated poster" : " poster"}`}
       loading="lazy"
       width="500"
       height="750"
@@ -43,14 +45,22 @@ export function MovieCard({
   onDetails,
   onCreate,
   matched = false,
+  saved = false,
+  selected = false,
+  onSave,
+  onSelect,
 }: {
   movie: Movie;
   onDetails: (movie: Movie) => void;
   onCreate?: (movie: Movie) => void;
   matched?: boolean;
+  saved?: boolean;
+  selected?: boolean;
+  onSave?: (movie: Movie) => void;
+  onSelect?: (movie: Movie) => void;
 }) {
   return (
-    <article className="movie-card">
+    <article className={`movie-card ${selected ? "movie-selected" : ""}`}>
       <div className="poster-wrap">
         <button
           className="poster-open"
@@ -67,6 +77,32 @@ export function MovieCard({
           <Star size={11} fill="currentColor" />
           {movie.rating.toFixed(1)}
         </span>
+        {onSave && (
+          <button
+            className={`save-movie ${saved ? "is-saved" : ""}`}
+            aria-label={`${saved ? "Remove" : "Save"} ${movie.title} ${saved ? "from" : "to"} shortlist`}
+            aria-pressed={saved}
+            onClick={() => onSave(movie)}
+          >
+            <Bookmark size={16} fill={saved ? "currentColor" : "none"} />
+          </button>
+        )}
+        {onSelect && (
+          <button
+            className={`poster-add ${selected ? "is-selected" : ""}`}
+            aria-label={`${selected ? "Remove" : "Add"} ${movie.title} ${selected ? "from" : "to"} movie night`}
+            aria-pressed={selected}
+            onClick={() => onSelect(movie)}
+          >
+            {selected ? <Check size={18} /> : <Plus size={18} />}
+          </button>
+        )}
+        {selected && (
+          <span className="selected-caption">
+            <Check size={12} />
+            In your lineup
+          </span>
+        )}
         {matched ? (
           <span className="match-badge">
             <Check size={13} /> Everyone’s in

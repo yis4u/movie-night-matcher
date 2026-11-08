@@ -126,6 +126,7 @@ jobs:
                 assert(body.length > 100, 'An asset is unexpectedly empty');
               }
               await read(new URL('art/dune.svg', base), /image\/svg\+xml/);
+              await read(new URL('art/cinema-hero.webp', base), /image\/webp/);
               await read(new URL('favicon.svg', base), /image\/svg\+xml/);
               console.log(`Verified published HTML, JavaScript, CSS, poster, and favicon at ${base}`);
               process.exit(0);

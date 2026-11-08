@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { ArrowRight, Globe2, Info, LoaderCircle, Ticket } from "lucide-react";
 import { Modal } from "./Modal";
+import { Poster } from "./Movies";
 import { cloudConfigured } from "../lib/config";
 import { friendlyError, type Backend } from "../lib/service";
 import { normalizeRoomCode } from "../lib/matching";
@@ -38,6 +39,14 @@ export function RoomForm({
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!backend) return;
+    if (!name.trim()) {
+      setError("Tell your crew what to call you.");
+      return;
+    }
+    if (kind === "create" && title.trim().length < 2) {
+      setError("Give your room a name with at least two characters.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -71,6 +80,22 @@ export function RoomForm({
           ? "Pick a name, send the invite, and let the good films find you."
           : "Bring your taste. Leave the endless group chat behind."}
       </p>
+      {kind === "create" && movies.length > 0 && (
+        <div className="deck-preview">
+          <div className="deck-preview-posters">
+            {movies.slice(0, 5).map((movie) => (
+              <Poster movie={movie} key={movie.id} />
+            ))}
+          </div>
+          <div>
+            <span className="eyebrow">YOUR OPENING LINEUP</span>
+            <strong>
+              {Math.min(movies.length, 20)} films. One shared favorite.
+            </strong>
+            <p>Everyone votes on these same picks.</p>
+          </div>
+        </div>
+      )}
       <form onSubmit={submit} className="room-form">
         <label>
           Your name
@@ -122,7 +147,7 @@ export function RoomForm({
                   {Math.min(movies.length, 20)} films in your room
                 </strong>
                 <br />
-                Your current discovery picks become the voting deck.
+                This lineup is saved with your room.
               </span>
             </div>
             {movies.length === 0 && (

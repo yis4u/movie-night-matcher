@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ArrowRight,
+  Bookmark,
+  Shuffle,
   ArrowUpRight,
   Check,
-  ChevronDown,
-  Clapperboard,
   Compass,
   Film,
   Globe2,
@@ -17,7 +17,6 @@ import {
   Search,
   SlidersHorizontal,
   Sparkles,
-  Ticket,
   Users,
   X,
 } from "lucide-react";
@@ -40,15 +39,22 @@ import {
   type Room,
   type Vote,
 } from "./lib/types";
-import { DEMO_MOVIES } from "./data/movies";
 import { sharedMatches } from "./lib/matching";
 import { Modal } from "./components/Modal";
 import { MovieCard, MovieDetails, Poster } from "./components/Movies";
 import { RoomForm } from "./components/RoomForm";
 import { RoomView } from "./components/RoomView";
+import {
+  DiscoveryHero,
+  HowItWorks,
+  MoodCollections,
+  MOODS,
+} from "./components/DiscoveryHero";
+import { filterMovies, readShortlist } from "./lib/discovery";
 import "./styles.css";
+import "./experience.css";
 type Page = "discover" | "rooms" | "matches";
-type FormState = { kind: "create" | "join"; code?: string; seed?: Movie };
+type FormState = { kind: "create" | "join"; code?: string; movies?: Movie[] };
 export default function App() {
   const [page, setPage] = useState<Page>("discover"),
     [activeRoom, setActiveRoom] = useState<string | null>(null),
@@ -92,6 +98,10 @@ export default function App() {
   const [roomMatches, setRoomMatches] = useState<
     Record<string, { room: Room; votes: Vote[] }>
   >({});
+  const [shortlist, setShortlist] = useState<Movie[]>(readShortlist);
+  const [shortlistOnly, setShortlistOnly] = useState(false);
+  const [selectedMovies, setSelectedMovies] = useState<Movie[]>([]);
+  const [mood, setMood] = useState("");
   const notify = useCallback((message: string) => setToast(message), []);
   useEffect(() => {
     if (!toast) return;
@@ -213,6 +223,93 @@ export default function App() {
     );
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
   }, [page, backend, rooms.map((r) => r.id).join(",")]);
+  useEffect(() => {
+    const sync = (event: StorageEvent) => {
+      if (event.key === "mnm:shortlist:v1") setShortlist(readShortlist());
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
+  useEffect(() => {
+    const search = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (
+        event.key === "/" &&
+        page === "discover" &&
+        !activeRoom &&
+        !document.querySelector("dialog[open]") &&
+        !target.closest('input,textarea,select,[contenteditable="true"]')
+      ) {
+        event.preventDefault();
+        document
+          .querySelector<HTMLInputElement>(".search-field input")
+          ?.focus();
+      }
+    };
+    window.addEventListener("keydown", search);
+    return () => window.removeEventListener("keydown", search);
+  }, [page, activeRoom]);
+  function toggleSave(movie: Movie) {
+    const exists = shortlist.some((item) => item.id === movie.id);
+    if (!exists && shortlist.length >= 100) {
+      notify("Your shortlist has 100 films. Remove a pick to save another.");
+      return;
+    }
+    const next = exists
+      ? shortlist.filter((item) => item.id !== movie.id)
+      : [...shortlist, movie];
+    try {
+      localStorage.setItem("mnm:shortlist:v1", JSON.stringify(next));
+      setShortlist(next);
+      notify(
+        exists
+          ? `${movie.title} removed from your shortlist.`
+          : `${movie.title} saved for another great night.`,
+      );
+    } catch {
+      notify(
+        "Your browser couldn’t save this shortlist. Allow site storage and try again.",
+      );
+    }
+  }
+  function toggleSelection(movie: Movie) {
+    if (selectedMovies.some((item) => item.id === movie.id)) {
+      setSelectedMovies((items) =>
+        items.filter((item) => item.id !== movie.id),
+      );
+      return;
+    }
+    if (selectedMovies.length >= 20) {
+      notify(
+        "A movie night can have up to 20 films. Remove a pick to add another.",
+      );
+      return;
+    }
+    setSelectedMovies((items) => [...items, movie]);
+  }
+  function chooseMood(id: string) {
+    const preset = MOODS.find((item) => item.id === id);
+    if (!preset) return;
+    if (mood === id) {
+      setMood("");
+      setGenre("All genres");
+      setMaxRuntime(1000);
+    } else {
+      setMood(id);
+      setGenre(preset.genre);
+      setMaxRuntime(preset.runtime);
+    }
+    setQuery("");
+    setCatalogPage(1);
+    document
+      .getElementById("discover")
+      ?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
+        block: "start",
+      });
+  }
   function changeCountry(value: string) {
     setCountry(value);
     setCatalogPage(1);
@@ -233,17 +330,41 @@ export default function App() {
   }
   function create(seed?: Movie) {
     setDetails(null);
-    setForm({ kind: "create", seed });
+    setForm({
+      kind: "create",
+      movies: seed
+        ? [seed]
+        : selectedMovies.length
+          ? selectedMovies
+          : undefined,
+    });
   }
   function filterGenre(value: string) {
+    setMood("");
     setGenre(value);
     setCatalogPage(1);
   }
   const countryLabel = COUNTRIES.find((c) => c.code === country)!;
-  const seed = form?.seed;
-  const deck = seed
-    ? [seed, ...movies.filter((m) => m.id !== seed.id)]
+  const visibleMovies = shortlistOnly
+    ? filterMovies(shortlist, {
+        query: debouncedQuery,
+        genre,
+        sort,
+        maxRuntime,
+      })
     : movies;
+  const deck = form?.movies || visibleMovies;
+  function surprise() {
+    if (!visibleMovies.length) {
+      notify("Try another filter to find your surprise pick.");
+      return;
+    }
+    setDetails(
+      visibleMovies[
+        crypto.getRandomValues(new Uint32Array(1))[0] % visibleMovies.length
+      ],
+    );
+  }
   const nav = [
     { page: "discover", label: "Discover", icon: Compass },
     { page: "rooms", label: "My rooms", icon: Users },
@@ -387,129 +508,18 @@ export default function App() {
           />
         ) : page === "discover" ? (
           <main>
-            <section className="hero shell">
-              <div className="hero-copy">
-                <span className="eyebrow hero-eyebrow">
-                  <span />
-                  LESS SCROLLING. MORE MOVIE NIGHTS.
-                </span>
-                <h1>
-                  Good friends.
-                  <br />
-                  Great films.
-                  <br />
-                  <span>One shared yes.</span>
-                </h1>
-                <p>
-                  Skip the “what should we watch?” spiral.
-                  <br className="desktop-break" /> Find a movie your whole crew
-                  is into.
-                </p>
-                <div className="hero-actions">
-                  <button className="button primary" onClick={() => create()}>
-                    <Plus size={18} />
-                    Create a room
-                    <ArrowUpRight size={18} />
-                  </button>
-                  <button
-                    className="button secondary"
-                    onClick={() => setForm({ kind: "join" })}
-                  >
-                    Join with a code
-                    <ArrowRight size={17} />
-                  </button>
-                </div>
-                <div className="hero-social">
-                  <span className="avatar-stack" aria-hidden="true">
-                    <span>J</span>
-                    <span>A</span>
-                    <span>M</span>
-                    <span>+</span>
-                  </span>
-                  <span>
-                    Your people. Your picks.
-                    <br />
-                    <strong>Your next movie night, sorted.</strong>
-                  </span>
-                </div>
-              </div>
-              <div
-                className="hero-art"
-                aria-label="Illustrated movie posters for Dune, Interstellar, and The Grand Budapest Hotel"
-              >
-                <div className="hero-glow" />
-                <div className="hero-orbit orbit-one" />
-                <div className="hero-orbit orbit-two" />
-                <div className="hero-poster hero-poster-left">
-                  <Poster movie={DEMO_MOVIES[4]} />
-                </div>
-                <div className="hero-poster hero-poster-right">
-                  <Poster movie={DEMO_MOVIES[2]} />
-                </div>
-                <div className="hero-poster hero-poster-center">
-                  <Poster movie={DEMO_MOVIES[0]} />
-                </div>
-                <div className="hero-ticket">
-                  <div className="ticket-icon">
-                    <Heart size={21} fill="currentColor" />
-                  </div>
-                  <div>
-                    <strong>It’s a match!</strong>
-                    <span>The best plans start with a yes.</span>
-                  </div>
-                  <span className="ticket-spark">
-                    <Sparkles size={20} />
-                  </span>
-                </div>
-                <span className="art-label">
-                  A LITTLE SOMETHING FOR EVERYONE
-                </span>
-              </div>
-            </section>
-            <section
-              className="how-strip shell"
-              aria-label="How movie nights work"
-            >
-              <div>
-                <span className="step-icon">
-                  <Users size={20} />
-                </span>
-                <p>
-                  <strong>01. Get the crew together</strong>
-                  <span>Create a room. Send the invite.</span>
-                </p>
-              </div>
-              <span className="step-arrow">
-                <ChevronDown size={17} />
-              </span>
-              <div>
-                <span className="step-icon">
-                  <Heart size={20} />
-                </span>
-                <p>
-                  <strong>02. Trust your taste</strong>
-                  <span>Swipe right on your kind of film.</span>
-                </p>
-              </div>
-              <span className="step-arrow">
-                <ChevronDown size={17} />
-              </span>
-              <div>
-                <span className="step-icon">
-                  <Clapperboard size={21} />
-                </span>
-                <p>
-                  <strong>03. Meet your movie</strong>
-                  <span>Everyone says yes? That’s a match.</span>
-                </p>
-              </div>
-            </section>
+            <DiscoveryHero
+              onCreate={() => create()}
+              onJoin={() => setForm({ kind: "join" })}
+              onDetails={setDetails}
+              onSurprise={surprise}
+            />
+            <HowItWorks />
+            <MoodCollections active={mood} onSelect={chooseMood} />
             <section className="discovery-section shell" id="discover">
               <div className="section-heading">
                 <div>
-                  <span className="eyebrow">
-                    THE NEXT GREAT NIGHT STARTS HERE
-                  </span>
+                  <span className="eyebrow">GOOD STORIES. GREAT COMPANY.</span>
                   <h2>
                     Find your next <span>“yes.”</span>
                   </h2>
@@ -521,6 +531,31 @@ export default function App() {
                     : "The demo collection"}
                 </span>
               </div>
+              <div className="collection-switch">
+                <div aria-label="Movie collection">
+                  <button
+                    aria-pressed={!shortlistOnly}
+                    onClick={() => setShortlistOnly(false)}
+                  >
+                    <Film size={16} />
+                    All films
+                  </button>
+                  <button
+                    aria-pressed={shortlistOnly}
+                    onClick={() => setShortlistOnly(true)}
+                  >
+                    <Bookmark size={15} />
+                    My shortlist<span>{shortlist.length}</span>
+                  </button>
+                </div>
+                <button
+                  className="text-button surprise-inline"
+                  onClick={surprise}
+                >
+                  <Shuffle size={15} />
+                  Surprise me
+                </button>
+              </div>
               <div className="catalog-toolbar">
                 <label className="search-field">
                   <Search size={19} />
@@ -530,6 +565,7 @@ export default function App() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
+                  {!query && <kbd className="search-shortcut">/</kbd>}
                   {query && (
                     <button
                       aria-label="Clear search"
@@ -558,6 +594,7 @@ export default function App() {
                     aria-label="Maximum runtime"
                     value={maxRuntime}
                     onChange={(e) => {
+                      setMood("");
                       setMaxRuntime(Number(e.target.value));
                       setCatalogPage(1);
                     }}
@@ -612,14 +649,14 @@ export default function App() {
                   ))}
                 </div>
                 <span className="result-count" role="status">
-                  {!loading && !catalogError
-                    ? `${movies.length} films to fall for`
+                  {shortlistOnly || (!loading && !catalogError)
+                    ? `${visibleMovies.length} ${visibleMovies.length === 1 ? "film" : "films"}${shortlistOnly ? " in your shortlist" : " to fall for"}`
                     : loading
                       ? "Finding good films…"
                       : ""}
                 </span>
               </div>
-              {catalogError ? (
+              {catalogError && !shortlistOnly ? (
                 <div className="empty-state">
                   <Info size={28} />
                   <h3>The projector hit a snag.</h3>
@@ -631,7 +668,7 @@ export default function App() {
                     Try again
                   </button>
                 </div>
-              ) : loading && catalogPage === 1 ? (
+              ) : loading && catalogPage === 1 && !shortlistOnly ? (
                 <div
                   className="movie-grid"
                   aria-busy="true"
@@ -645,24 +682,34 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-              ) : movies.length ? (
+              ) : visibleMovies.length ? (
                 <div className="movie-grid">
-                  {movies.map((movie) => (
+                  {visibleMovies.map((movie) => (
                     <MovieCard
                       key={movie.id}
                       movie={movie}
                       onDetails={setDetails}
-                      onCreate={create}
+                      onSave={toggleSave}
+                      saved={shortlist.some((item) => item.id === movie.id)}
+                      onSelect={toggleSelection}
+                      selected={selectedMovies.some(
+                        (item) => item.id === movie.id,
+                      )}
                     />
                   ))}
                 </div>
               ) : (
                 <div className="empty-state">
                   <Film size={32} />
-                  <h3>No films in this frame.</h3>
+                  <h3>
+                    {shortlistOnly && !shortlist.length
+                      ? "Save a little movie-night inspiration."
+                      : "No films in this frame."}
+                  </h3>
                   <p>
-                    Try another title, genre, or runtime. Your next yes is out
-                    there.
+                    {shortlistOnly && !shortlist.length
+                      ? "Tap the bookmark on a film to save it here. Your shortlist stays on this browser for the nights to come."
+                      : "Try another title, genre, or runtime. Your next yes is out there."}
                   </p>
                   <button
                     className="button secondary"
@@ -670,13 +717,17 @@ export default function App() {
                       setQuery("");
                       filterGenre("All genres");
                       setMaxRuntime(1000);
+                      if (shortlistOnly && !shortlist.length)
+                        setShortlistOnly(false);
                     }}
                   >
-                    Reset filters
+                    {shortlistOnly && !shortlist.length
+                      ? "Explore all films"
+                      : "Reset filters"}
                   </button>
                 </div>
               )}
-              {hasMore && !catalogError && (
+              {hasMore && !catalogError && !shortlistOnly && (
                 <div className="load-more">
                   <button
                     className="button secondary"
@@ -701,7 +752,7 @@ export default function App() {
                 <span>
                   {catalogConfigured
                     ? "Movie data by TMDB."
-                    : "A curated sample catalog with original illustrated posters. Ratings are sample snapshots."}
+                    : "A curated sample catalog. Posters by TMDB, with illustrated fallbacks. Ratings are sample snapshots."}
                 </span>
                 <span>
                   <Globe2 size={13} />
@@ -884,7 +935,41 @@ export default function App() {
           </main>
         )}
       </div>
-      <footer className="site-footer shell">
+      {selectedMovies.length > 0 && page === "discover" && !activeRoom && (
+        <aside className="deck-dock" aria-label="Selected movie night lineup">
+          <div className="dock-posters" aria-hidden="true">
+            {selectedMovies.slice(0, 3).map((movie) => (
+              <Poster key={movie.id} movie={movie} />
+            ))}
+          </div>
+          <div className="dock-copy">
+            <span className="eyebrow">YOUR MOVIE NIGHT IS TAKING SHAPE</span>
+            <strong>
+              {selectedMovies.length}{" "}
+              {selectedMovies.length === 1 ? "film" : "films"} in your lineup
+              <span role="status" className="sr-only">
+                {selectedMovies.map((movie) => movie.title).join(", ")}
+              </span>
+            </strong>
+          </div>
+          <button className="dock-clear" onClick={() => setSelectedMovies([])}>
+            Clear<span className="sr-only"> movie night selection</span>
+          </button>
+          <button className="button primary" onClick={() => create()}>
+            Create room with {selectedMovies.length}{" "}
+            {selectedMovies.length === 1 ? "film" : "films"}
+            <ArrowRight size={17} />
+          </button>
+        </aside>
+      )}
+      <footer
+        className="site-footer shell"
+        style={
+          selectedMovies.length > 0 && page === "discover" && !activeRoom
+            ? { paddingBottom: "185px" }
+            : undefined
+        }
+      >
         <div>
           <span className="footer-brand">
             <Popcorn size={18} />

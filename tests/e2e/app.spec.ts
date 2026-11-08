@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+// Verify that browsing remains usable if the external poster CDN is unavailable.
+test.beforeEach(async ({ page, context }) => {
+  await context.route("https://image.tmdb.org/**", (route) => route.abort());
+});
 async function createRoom(page: Page) {
   await page
     .getByRole("button", { name: "Create a room", exact: true })
@@ -36,6 +40,20 @@ test("create, invite a second person, vote, match, change a vote, and end a room
   ).toBeVisible();
   await page.getByRole("button", { name: "I’m in!" }).click();
   await friend.getByRole("button", { name: "I’m in!" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "It’s a match!" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByText("Dune: Part Two", { exact: true }),
+  ).toBeVisible();
+  const revealScan = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(revealScan.violations).toEqual([]);
+  await page
+    .getByRole("button", { name: "See shared matches", exact: true })
+    .click();
+  await friend.getByRole("button", { name: "Close dialog" }).click();
   await page.getByRole("tab", { name: "Shared matches" }).click();
   await expect(page.locator(".room-matches .movie-title")).toHaveText(
     "Dune: Part Two",
@@ -98,6 +116,8 @@ test("keyboard voting and native dialog focus stay accessible", async ({
   page,
 }) => {
   await page.goto("");
+  await page.keyboard.press("/");
+  await expect(page.getByLabel("Search movies")).toBeFocused();
   const create = page.getByRole("button", {
     name: "Create a room",
     exact: true,
@@ -127,7 +147,7 @@ test("responsive pages have no horizontal overflow and pass accessibility checks
   await page.goto("");
   await expect(page.locator(".movie-card")).toHaveCount(12);
   const initialViewport = page.viewportSize()!;
-  for (const width of [360, 390, 768, 1440]) {
+  for (const width of [320, 360, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     expect(
       await page.evaluate(
@@ -193,4 +213,108 @@ test("horizontal swipes vote while vertical scrolling does not", async ({
   await expect(page.locator(".voting-progress strong")).toHaveText("1 / 12");
   await swipe(110, 250, 250, 255);
   await expect(page.locator(".voting-progress strong")).toHaveText("2 / 12");
+});
+
+test("a saved shortlist persists across reloads and can be removed", async ({
+  page,
+}) => {
+  await page.goto("");
+  await page
+    .getByRole("button", { name: "Save Knives Out to shortlist", exact: true })
+    .click();
+  await page.getByRole("button", { name: /My shortlist/ }).click();
+  await expect(page.locator(".movie-grid .movie-card")).toHaveCount(1);
+  await expect(page.locator(".movie-grid .movie-title")).toHaveText(
+    "Knives Out",
+  );
+  await page.reload();
+  await page.getByRole("button", { name: /My shortlist/ }).click();
+  await expect(page.locator(".movie-grid .movie-title")).toHaveText(
+    "Knives Out",
+  );
+  await page
+    .getByRole("button", {
+      name: "Remove Knives Out from shortlist",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Save a little movie-night inspiration.",
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Explore all films", exact: true })
+    .click();
+  await expect(page.locator(".movie-grid .movie-card")).toHaveCount(12);
+});
+test("a custom lineup survives filtering and becomes the exact room deck", async ({
+  page,
+}) => {
+  await page.goto("");
+  await page
+    .getByRole("button", {
+      name: "Add Dune: Part Two to movie night",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", { name: "Add Arrival to movie night", exact: true })
+    .click();
+  await page.getByRole("button", { name: /In before midnight/ }).click();
+  await expect(page.locator(".movie-grid .movie-card")).toHaveCount(5);
+  await page
+    .getByRole("button", { name: "Create room with 2 films", exact: true })
+    .click();
+  await expect(page.locator(".deck-preview")).toContainText(
+    "2 films. One shared favorite.",
+  );
+  await page.getByLabel("Your name").fill("Tay");
+  await page.getByLabel("Room name").fill("The handpicked night");
+  await page
+    .getByRole("button", { name: "Create movie room", exact: true })
+    .click();
+  await expect(page.locator(".voting-progress strong")).toHaveText("0 / 2");
+  await expect(page.locator(".vote-copy h2")).toHaveText("Dune: Part Two");
+  await page
+    .getByRole("button", { name: "Add a demo friend", exact: false })
+    .click();
+  await page.getByRole("button", { name: "I’m in!" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "It’s a match!" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Includes Alex’s simulated demo vote."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close dialog" }).click();
+  await expect(page.locator(".vote-copy h2")).toHaveText("Arrival");
+});
+test("moods filter the catalog and surprise picks respect the current search", async ({
+  page,
+}) => {
+  await page.goto("");
+  await page.getByRole("button", { name: /Out of this world/ }).click();
+  await expect(page.locator(".movie-grid .movie-card")).toHaveCount(5);
+  await expect(page.getByLabel("Movie genre")).toHaveValue("Science Fiction");
+  await page.getByRole("button", { name: /Out of this world/ }).click();
+  await expect(page.locator(".movie-grid .movie-card")).toHaveCount(12);
+  await page.getByLabel("Search movies").fill("The Martian");
+  await expect(page.locator(".movie-grid .movie-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "Surprise me", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "The Martian", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close dialog" }).click();
+  await page
+    .getByRole("button", { name: "Next spotlight film", exact: true })
+    .click();
+  await expect(page.locator(".spotlight-film strong")).toHaveText(
+    "Spider-Man: Across the Spider-Verse",
+  );
+  await page
+    .getByRole("button", { name: "Previous spotlight film", exact: true })
+    .click();
+  await expect(page.locator(".spotlight-film strong")).toHaveText(
+    "Dune: Part Two",
+  );
 });

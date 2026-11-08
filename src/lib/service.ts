@@ -1,6 +1,7 @@
 import { catalogConfigured, cloudConfigured } from "./config";
 import { DEMO_MOVIES } from "../data/movies";
 import * as demo from "./demo";
+import { filterMovies } from "./discovery";
 import type {
   Availability,
   Catalog,
@@ -98,16 +99,7 @@ export interface Filters {
 }
 export async function getCatalog(filters: Filters): Promise<Catalog> {
   if (catalogConfigured) return (await import("./cloud")).fetchCatalog(filters);
-  let movies = DEMO_MOVIES.filter(
-    (m) =>
-      (filters.genre === "All genres" || m.genres.includes(filters.genre)) &&
-      m.title.toLowerCase().includes(filters.query.toLowerCase().trim()) &&
-      (!m.runtime || m.runtime <= filters.maxRuntime),
-  );
-  if (filters.sort === "rating")
-    movies = [...movies].sort((a, b) => b.rating - a.rating);
-  if (filters.sort === "newest")
-    movies = [...movies].sort((a, b) => b.year - a.year);
+  const movies = filterMovies(DEMO_MOVIES, filters);
   return { movies, hasMore: false };
 }
 export async function getAvailability(

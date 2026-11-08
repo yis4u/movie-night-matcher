@@ -113,9 +113,10 @@ export async function initializeCloud(): Promise<Backend> {
       let room: Room | null = null,
         votes: Vote[] = [],
         cached = false,
-        roomLoaded = false;
+        roomLoaded = false,
+        votesLoaded = false;
       const notify = () => {
-        if (roomLoaded) callback(room, votes, cached);
+        if (roomLoaded && votesLoaded) callback(room, votes, cached);
       };
       const unsubscribeRoom = onSnapshot(
         doc(db, "rooms", code),
@@ -134,6 +135,7 @@ export async function initializeCloud(): Promise<Backend> {
         collection(db, "rooms", code, "votes"),
         (snapshot) => {
           votes = snapshot.docs.map((d) => d.data() as Vote);
+          votesLoaded = true;
           notify();
         },
         error,

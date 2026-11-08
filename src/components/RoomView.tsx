@@ -29,6 +29,7 @@ import {
 } from "../lib/types";
 import { MovieCard, Poster } from "./Movies";
 import { Modal } from "./Modal";
+import { MatchReveal } from "./MatchReveal";
 export function RoomView({
   code,
   user,
@@ -53,7 +54,8 @@ export function RoomView({
     [tab, setTab] = useState<"vote" | "matches">("vote"),
     [review, setReview] = useState<number | null>(null),
     [retry, setRetry] = useState(0),
-    [ending, setEnding] = useState(false);
+    [ending, setEnding] = useState(false),
+    [revealedMatch, setRevealedMatch] = useState<Movie | null>(null);
   const swipe = useRef<{ x: number; y: number } | null>(null),
     previousMatches = useRef<Set<number> | null>(null),
     voteLock = useRef(false);
@@ -77,14 +79,20 @@ export function RoomView({
   const mine = votedIds(user.uid, votes),
     matches = room ? sharedMatches(room, votes) : [];
   useEffect(() => {
-    const current = new Set(matches.map((m) => m.id));
-    if (
-      previousMatches.current &&
-      [...current].some((id) => !previousMatches.current!.has(id))
-    )
+    if (loading || !room) return;
+    const current = new Set(matches.map((movie) => movie.id));
+    const newMatch = previousMatches.current
+      ? matches.find((movie) => !previousMatches.current!.has(movie.id))
+      : undefined;
+    if (newMatch) {
       notify("It’s a match! Your whole room said yes.");
+      if (!document.querySelector("dialog[open]")) setRevealedMatch(newMatch);
+    }
+    setRevealedMatch((previous) =>
+      previous && !current.has(previous.id) ? null : previous,
+    );
     previousMatches.current = current;
-  }, [matches.map((m) => m.id).join(","), notify]);
+  }, [loading, room?.id, matches.map((movie) => movie.id).join(","), notify]);
   if (loading)
     return (
       <div className="page-state" role="status">
@@ -246,7 +254,9 @@ export function RoomView({
               id="room-tab-matches"
               role="tab"
               tabIndex={tab === "matches" ? 0 : -1}
-              aria-controls={tab === "matches" ? "room-matches-panel" : undefined}
+              aria-controls={
+                tab === "matches" ? "room-matches-panel" : undefined
+              }
               aria-selected={tab === "matches"}
               onClick={() => setTab("matches")}
             >
@@ -370,7 +380,7 @@ export function RoomView({
                     <div className="vote-poster">
                       <Poster movie={movie} />
                     </div>
-                    <div className="vote-copy">
+                    <div className="vote-copy" key={movie.id}>
                       <span className="eyebrow">
                         {review ? "CHANGE YOUR MIND?" : "HOW ABOUT THIS ONE?"}
                       </span>
@@ -507,6 +517,30 @@ export function RoomView({
               Copy invite link
             </button>
           </div>
+          <div className="room-pulse">
+            <div>
+              <span className="status-dot" />
+              <span>THE NIGHT IS COMING TOGETHER</span>
+            </div>
+            <strong>
+              {Math.round(
+                (votes.filter((v) => room.memberIds.includes(v.uid)).length /
+                  (room.memberIds.length * room.movies.length)) *
+                  100,
+              )}
+              <span>%</span>
+            </strong>
+            <p>of the crew’s votes are in</p>
+            <progress
+              aria-label="Crew voting progress"
+              value={votes.filter((v) => room.memberIds.includes(v.uid)).length}
+              max={room.memberIds.length * room.movies.length}
+            />
+            <span>
+              {matches.length} shared{" "}
+              {matches.length === 1 ? "match" : "matches"} so far
+            </span>
+          </div>
           <div className="room-members">
             <h3>
               <Users size={17} />
@@ -570,6 +604,22 @@ export function RoomView({
           )}
         </aside>
       </div>
+      {revealedMatch && (
+        <MatchReveal
+          movie={revealedMatch}
+          room={room}
+          onClose={() => setRevealedMatch(null)}
+          onMatches={() => {
+            setRevealedMatch(null);
+            setTab("matches");
+          }}
+          onDetails={() => {
+            const movie = revealedMatch;
+            setRevealedMatch(null);
+            onDetails(movie);
+          }}
+        />
+      )}
       {ending && (
         <Modal
           title="Call it a movie night?"

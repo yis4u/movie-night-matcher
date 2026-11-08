@@ -24,13 +24,16 @@ npm run preview
 
 ## What works in the demo
 
-- A curated catalog of 12 films, search, genre/runtime filters, and sorting.
-- Create and join rooms, invite codes, voting by buttons/swipe/keyboard, vote review, and unanimous matches.
+- A cinematic discovery screen with original hero artwork, spotlight navigation, mood collections, search, genre/runtime filters, and sorting.
+- A personal **shortlist** saved on this browser, plus an explicit film lineup you can build before creating a room. Select up to 20 films; changing discovery filters preserves your lineup.
+- **Surprise me** picks a film from the currently visible results; it never claims to provide AI recommendations.
+- Create and join rooms, preview the exact voting deck, share invite codes, vote by buttons/swipe/keyboard, review votes, and discover unanimous matches.
+- Live crew progress and an accessible match celebration for newly unanimous films. Existing matches are not announced again when reopening a room; reduced-motion preferences are respected.
 - Updates between tabs in the **same browser** using local storage and storage events. A new tab has its own demo voter identity.
 - Optional **Add a demo friend** adds Alex with explicitly simulated votes. No simulated people join automatically.
 - Film details and country selection. Streaming lookup is explicitly unavailable until the TMDB backend is connected; no provider offers are fabricated.
 
-Demo rooms and votes persist in this device’s local storage. They are **not private**, are not shared between browsers or devices, and may be cleared with browser site data. Guest voter identity lasts for that tab’s session. Illustrated posters are original SVG demo artwork; sample ratings are fixed snapshots, not live ratings. The hero’s match ticket illustrates the concept; actual room matches are computed from votes.
+Demo rooms and votes persist in this device’s local storage. They are **not private**, are not shared between browsers or devices, and may be cleared with browser site data. Guest voter identity lasts for that tab’s session. Movie posters load from TMDB’s public image CDN, with original SVG illustrations as offline/error fallbacks. The cinematic hero is original generated artwork, not a still from a featured film. Sample ratings are fixed snapshots, not live ratings. Actual room matches are computed from votes.
 
 ## Connect Firebase and TMDB
 
@@ -117,12 +120,12 @@ npx playwright install --with-deps chromium
 npm run test:e2e
 ```
 
-Browser tests cover two real demo voters in separate tabs; invite, vote, match, changed vote, and host-close flows; keyboard voting and dialog focus; search/filter empty states; missing-provider disclosure and country selection; invalid codes; layouts at 360, 390, 768, and 1440 pixels; and WCAG A/AA automated checks. Firestore tests verify membership-only reads, vote integrity, host-only closure, and server-data isolation. Live Google/Firebase/TMDB integration requires your configured project and should be smoke-tested after backend deployment.
+Browser tests cover two real demo voters in separate tabs; invite, vote, match, changed vote, and host-close flows; keyboard voting and dialog focus; search/filter empty states; missing-provider disclosure and country selection; invalid codes; layouts at 320, 360, 390, 768, and 1440 pixels; shortlist persistence and removal; exact custom room decks across filter changes; mood and surprise discovery; poster CDN failure fallbacks; new-match celebration accessibility; and WCAG A/AA automated checks. Firestore tests verify membership-only reads, vote integrity, host-only closure, and server-data isolation. Live Google/Firebase/TMDB integration requires your configured project and should be smoke-tested after backend deployment.
 
 On a machine with system Chromium already installed, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium` for the browser tests. `E2E_BASE_URL` can target an already-running production preview or deployed demo. Test artifacts are ignored locally and retained for failed CI runs.
 
 ## Credits
 
-Built with React, TypeScript, Vite, Firebase, Lucide, DM Sans, and Manrope. Fonts are bundled locally; no external font request is required. Demo poster illustrations are SVG artwork created for this app. Movie metadata and live posters use [TMDB](https://www.themoviedb.org/); streaming availability is powered by [JustWatch](https://www.justwatch.com/) via TMDB.
+Built with React, TypeScript, Vite, Firebase, Lucide, DM Sans, and Manrope. Fonts are bundled locally; no external font request is required. The original generated cinematic hero is optimized to a roughly 100 KB WebP; fallback poster illustrations are SVG artwork created for this app. Movie metadata and posters use [TMDB](https://www.themoviedb.org/); streaming availability is powered by [JustWatch](https://www.justwatch.com/) via TMDB.
 
 This product uses the TMDB API but is not endorsed or certified by TMDB.
