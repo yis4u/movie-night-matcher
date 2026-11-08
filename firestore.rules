@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function member(room) { return signedIn() && request.auth.uid in room.memberIds; }
+    function roomData(roomId) { return get(/databases/$(database)/documents/rooms/$(roomId)).data; }
+    match /rooms/{roomId} {
+      // This also constrains queries: clients must query memberIds array-contains their UID.
+      allow read: if member(resource.data);
+      // Creation and joining require authenticated, rate-limited, App Check protected callables.
+      allow create, delete: if false;
+      allow update: if member(resource.data)
+        && request.auth.uid == resource.data.ownerId
+        && resource.data.status == 'active'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'closedAt'])
+        && request.resource.data.status == 'closed'
+        && request.resource.data.closedAt == request.time;
+      match /votes/{voteId} {
+        allow read: if member(roomData(roomId));
+        allow create, update: if member(roomData(roomId))
+          && roomData(roomId).status == 'active'
+          && request.resource.data.keys().hasAll(['uid', 'movieId', 'choice', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['uid', 'movieId', 'choice', 'updatedAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.movieId is int
+          && request.resource.data.movieId in roomData(roomId).movieIds
+          && voteId == request.auth.uid + '_' + string(request.resource.data.movieId)
+          && request.resource.data.choice in ['yes', 'no']
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if false;
+      }
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

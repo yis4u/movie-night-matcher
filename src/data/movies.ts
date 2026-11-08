@@ -1,0 +1,148 @@
+import type { Movie } from "../lib/types";
+// A small, intentionally fixed demo catalog. Ratings are illustrative snapshots, not live data.
+export const DEMO_MOVIES: Movie[] = [
+  {
+    id: 693134,
+    title: "Dune: Part Two",
+    year: 2024,
+    rating: 8.2,
+    genres: ["Science Fiction", "Adventure"],
+    runtime: 166,
+    poster: "/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
+    art: "dune",
+    overview:
+      "Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family. A choice between love and the fate of the universe awaits.",
+  },
+  {
+    id: 569094,
+    title: "Spider-Man: Across the Spider-Verse",
+    year: 2023,
+    rating: 8.4,
+    genres: ["Animation", "Adventure"],
+    runtime: 140,
+    poster: "/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg",
+    art: "spiderverse",
+    overview:
+      "Miles Morales is catapulted across the multiverse, where he encounters a team of Spider-People charged with protecting its very existence.",
+  },
+  {
+    id: 157336,
+    title: "Interstellar",
+    year: 2014,
+    rating: 8.5,
+    genres: ["Science Fiction", "Drama"],
+    runtime: 169,
+    poster: "/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
+    art: "interstellar",
+    overview:
+      "A team of explorers travels beyond this galaxy to discover whether mankind has a future among the stars. A journey about time, family, and the things that connect us.",
+  },
+  {
+    id: 546554,
+    title: "Knives Out",
+    year: 2019,
+    rating: 7.8,
+    genres: ["Mystery", "Comedy", "Crime"],
+    runtime: 131,
+    poster: "/pThyQovXQrw2m0s9x82twj48Jq4.jpg",
+    art: "knives",
+    overview:
+      "When a renowned crime novelist is found dead at his estate, the inquisitive detective Benoit Blanc must sift through a tangled web of secrets and self-serving lies.",
+  },
+  {
+    id: 120467,
+    title: "The Grand Budapest Hotel",
+    year: 2014,
+    rating: 8.1,
+    genres: ["Comedy", "Drama"],
+    runtime: 100,
+    poster: "/eWdyYQreja6JGCzqHWXpWHDrrPo.jpg",
+    art: "budapest",
+    overview:
+      "A legendary concierge and his young lobby boy become trusted friends as they find themselves caught up in the theft of a priceless painting and a battle for a family fortune.",
+  },
+  {
+    id: 545611,
+    title: "Everything Everywhere All at Once",
+    year: 2022,
+    rating: 7.8,
+    genres: ["Science Fiction", "Comedy", "Adventure"],
+    runtime: 139,
+    poster: "/w3LxiVYdWWRvEVdn5RYq6jIqkb1.jpg",
+    art: "everything",
+    overview:
+      "An exhausted laundromat owner is swept into a wild adventure in which she alone can save existence by exploring other universes and the lives she could have led.",
+  },
+  {
+    id: 329865,
+    title: "Arrival",
+    year: 2016,
+    rating: 7.6,
+    genres: ["Science Fiction", "Drama", "Mystery"],
+    runtime: 116,
+    poster: "/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg",
+    art: "arrival",
+    overview:
+      "When mysterious spacecraft touch down across the globe, a linguist is recruited to investigate. As nations teeter on the verge of war, she races against time for answers.",
+  },
+  {
+    id: 508442,
+    title: "Soul",
+    year: 2020,
+    rating: 8.1,
+    genres: ["Animation", "Comedy", "Drama"],
+    runtime: 100,
+    poster: "/hm58Jw4Lw8OIeECIq5qyPYhAeRJ.jpg",
+    art: "soul",
+    overview:
+      "A music teacher with a passion for jazz finds himself in a place where new souls develop their personalities. There, he discovers what it really means to have soul.",
+  },
+  {
+    id: 414906,
+    title: "The Batman",
+    year: 2022,
+    rating: 7.7,
+    genres: ["Crime", "Mystery", "Thriller"],
+    runtime: 177,
+    poster: "/74xTEgt7R36Fpooo50r9T25onhq.jpg",
+    art: "batman",
+    overview:
+      "In his second year of fighting crime, Batman uncovers corruption in Gotham City that connects to his own family while facing a serial killer known as the Riddler.",
+  },
+  {
+    id: 666277,
+    title: "Past Lives",
+    year: 2023,
+    rating: 7.8,
+    genres: ["Drama"],
+    runtime: 106,
+    poster: "/k3waqVXSnvCZWfJYNtdamTgTtTA.jpg",
+    art: "pastlives",
+    overview:
+      "Nora and Hae Sung, two deeply connected childhood friends, are reunited in New York for one fateful week as they confront notions of destiny, love, and the choices that make a life.",
+  },
+  {
+    id: 286217,
+    title: "The Martian",
+    year: 2015,
+    rating: 7.7,
+    genres: ["Science Fiction", "Adventure"],
+    runtime: 144,
+    poster: "/5BHuvQ6p9kfc091Z8RiFNhCwL4b.jpg",
+    art: "martian",
+    overview:
+      "Left behind on Mars after a fierce storm, an astronaut must use his ingenuity, wit, and spirit to survive and find a way to signal Earth that he is alive.",
+  },
+  {
+    id: 346648,
+    title: "Paddington 2",
+    year: 2017,
+    rating: 7.5,
+    genres: ["Comedy", "Adventure"],
+    runtime: 104,
+    poster: "/1OJ9vkD5xPt3skC6WlbGzQG88Zr.jpg",
+    art: "paddington",
+    overview:
+      "Paddington picks up a series of odd jobs to buy the perfect present for his beloved Aunt Lucy. When the gift is stolen, the kindhearted bear and the Browns must unmask the thief.",
+  },
+];
