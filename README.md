@@ -104,6 +104,8 @@ A failed check blocks deployment. Pull requests run verification without publish
 
 Each build uploads an artifact named with its workflow run ID and attempt number. The build job passes that exact name to the deployment job, so full reruns do not create ambiguous `github-pages` artifacts and deployment-only reruns can reuse the successful build. Use **Re-run failed jobs** to retry publishing after correcting a Pages setting.
 
+After publishing, the deployment job checks the public URL against the built HTML checksum and verifies that JavaScript, CSS, poster art, and the favicon load under `/movie-night-matcher/`. It retries while GitHub Pages updates its cache. A successful workflow therefore confirms that the built frontend is available at the public URL.
+
 ## Validation
 
 ```sh

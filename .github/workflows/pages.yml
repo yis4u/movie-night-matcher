@@ -17,6 +17,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       pages-artifact-name: ${{ steps.pages-artifact-name.outputs.name }}
+      pages-index-sha256: ${{ steps.pages-artifact-name.outputs.index_sha256 }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -60,7 +61,14 @@ jobs:
       - name: Choose a unique Pages artifact for this build attempt
         if: github.event_name != 'pull_request'
         id: pages-artifact-name
-        run: echo "name=github-pages-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+        run: |
+          node --input-type=module <<'JS'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          const name = `github-pages-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`;
+          const hash = createHash('sha256').update(readFileSync('dist/index.html')).digest('hex');
+          appendFileSync(process.env.GITHUB_OUTPUT, `name=${name}\nindex_sha256=${hash}\n`);
+          JS
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:
@@ -84,3 +92,48 @@ jobs:
         id: deployment
         with:
           artifact_name: ${{ needs.verify.outputs.pages-artifact-name }}
+      - name: Verify the live React build and repository asset paths
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+          EXPECTED_INDEX_SHA256: ${{ needs.verify.outputs.pages-index-sha256 }}
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { createHash } from 'node:crypto';
+          const base = new URL(process.env.PAGES_URL);
+          const expected = process.env.EXPECTED_INDEX_SHA256;
+          assert.match(expected, /^[a-f0-9]{64}$/);
+          async function read(url, type) {
+            const response = await fetch(url, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
+            assert.equal(response.status, 200, `HTTP ${response.status} for ${url.pathname}`);
+            assert.match(response.headers.get('content-type') || '', type, `Unexpected content type for ${url.pathname}`);
+            return response.text();
+          }
+          let lastError;
+          for (let attempt = 1; attempt <= 12; attempt++) {
+            try {
+              const page = new URL(base);
+              page.searchParams.set('verify', `${process.env.GITHUB_RUN_ID}-${attempt}`);
+              const html = await read(page, /text\/html/);
+              assert.equal(createHash('sha256').update(html).digest('hex'), expected, 'Pages is still serving a different build');
+              const assets = [...html.matchAll(/(?:src|href)="([^"]+\/assets\/[^"?#]+\.(?:js|css))"/g)].map(match => new URL(match[1], base));
+              assert(assets.some(url => url.pathname.endsWith('.js')), 'Compiled React JavaScript is missing');
+              assert(assets.some(url => url.pathname.endsWith('.css')), 'Compiled styles are missing');
+              for (const asset of assets) {
+                assert.equal(asset.origin, base.origin);
+                assert(asset.pathname.startsWith(`${base.pathname}assets/`), 'Asset uses an incorrect repository base path');
+                const body = await read(asset, asset.pathname.endsWith('.js') ? /javascript|ecmascript/ : /text\/css/);
+                assert(body.length > 100, 'An asset is unexpectedly empty');
+              }
+              await read(new URL('art/dune.svg', base), /image\/svg\+xml/);
+              await read(new URL('favicon.svg', base), /image\/svg\+xml/);
+              console.log(`Verified published HTML, JavaScript, CSS, poster, and favicon at ${base}`);
+              process.exit(0);
+            } catch (error) {
+              lastError = error;
+              console.log(`Waiting for the published build (${attempt}/12): ${error.message}`);
+              if (attempt < 12) await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+          }
+          throw lastError;
+          JS
