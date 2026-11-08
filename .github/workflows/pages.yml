@@ -15,6 +15,8 @@ jobs:
     name: Build, room flows, accessibility, and security rules
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      pages-artifact-name: ${{ steps.pages-artifact-name.outputs.name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,9 +57,14 @@ jobs:
           VITE_FIREBASE_APPCHECK_SITE_KEY: ${{ vars.VITE_FIREBASE_APPCHECK_SITE_KEY }}
           VITE_FIREBASE_FUNCTIONS_REGION: ${{ vars.VITE_FIREBASE_FUNCTIONS_REGION }}
           VITE_TMDB_ENABLED: ${{ vars.VITE_TMDB_ENABLED }}
+      - name: Choose a unique Pages artifact for this build attempt
+        if: github.event_name != 'pull_request'
+        id: pages-artifact-name
+        run: echo "name=github-pages-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:
+          name: ${{ steps.pages-artifact-name.outputs.name }}
           path: dist
   deploy:
     name: Publish frontend
@@ -75,3 +82,5 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/deploy-pages@v4
         id: deployment
+        with:
+          artifact_name: ${{ needs.verify.outputs.pages-artifact-name }}

@@ -102,6 +102,8 @@ The Vite base path is **`/movie-night-matcher/`**. Assets and hash-based room in
 
 A failed check blocks deployment. Pull requests run verification without publishing. The workflow has read-only repository contents access; only the deploy job receives `pages:write` and `id-token:write`. It never pushes rewritten history or a build branch.
 
+Each build uploads an artifact named with its workflow run ID and attempt number. The build job passes that exact name to the deployment job, so full reruns do not create ambiguous `github-pages` artifacts and deployment-only reruns can reuse the successful build. Use **Re-run failed jobs** to retry publishing after correcting a Pages setting.
+
 ## Validation
 
 ```sh
